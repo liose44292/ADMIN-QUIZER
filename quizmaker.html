@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quiz Maker</title>
+<style>
+  body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background-color: #013220;
+    color: white;
+    min-height: 100vh;
+    box-sizing: border-box;
+    padding-top: 60px;
+  }
+  header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 50px;
+    background-color: #02442A;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 20px;
+    box-sizing: border-box;
+    z-index: 10;
+  }
+  header a {
+    color: #90EE90;
+    text-decoration: none;
+    font-weight: bold;
+    font-size: 18px;
+  }
+  #plus-container {
+    position: fixed;
+    top: 50px;
+    left: 0;
+    width: 100%;
+    height: calc(100vh - 50px);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+  }
+  #plus-sign {
+    font-size: 150px;
+    color: white;
+    user-select: none;
+  }
+  .modal {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.8);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 100;
+  }
+  .modal-box {
+    background: #333;
+    padding: 30px;
+    border-radius: 10px;
+    display: flex;
+    gap: 20px;
+  }
+  .square-btn {
+    background: #555;
+    color: white;
+    width: 100px;
+    height: 100px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    border-radius: 8px;
+    font-weight: bold;
+    font-size: 14px;
+  }
+  .square-btn span {
+    font-size: 28px;
+    margin-top: 5px;
+  }
+  #editor-container {
+    display: none;
+    max-width: 800px;
+    margin: 20px auto;
+    background: #02442A;
+    padding: 20px;
+    border-radius: 8px;
+  }
+  .stretched-tile {
+    background: #222;
+    padding: 12px;
+    margin-bottom: 15px;
+    text-align: center;
+    font-weight: bold;
+    border-radius: 4px;
+    word-break: break-all;
+  }
+  .section-header {
+    background: #444;
+    padding: 10px;
+    text-align: center;
+    font-weight: bold;
+    margin-top: 15px;
+  }
+  .grid-3col {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+    margin: 10px 0;
+  }
+  .input-field {
+    display: flex;
+    flex-direction: column;
+  }
+  .input-field label {
+    font-size: 12px;
+    color: #90EE90;
+    margin-bottom: 2px;
+  }
+  .input-field input {
+    padding: 8px;
+    border: none;
+    border-radius: 4px;
+    background: white;
+    color: black;
+  }
+  #submit-btn {
+    background-color: #87CEEB;
+    color: black;
+    width: 100%;
+    padding: 15px;
+    font-size: 18px;
+    font-weight: bold;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-top: 20px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <a href="images.html">IMAGES</a>
+  <a href="audio.html">AUDIO</a>
+  <a href="video.html">VIDEO</a>
+</header>
+
+<div id="plus-container">
+  <div id="plus-sign">＋</div>
+  <div id="queue-status" style="font-size: 20px; margin-top: 10px; color: #90EE90;"></div>
+</div>
+
+<div class="modal" id="uploadModal">
+  <div class="modal-box">
+    <div class="square-btn" onclick="triggerFile('audio')">Audio<br><span>🔊</span></div>
+    <div class="square-btn" onclick="triggerFile('image')">Images<br><span>🖼</span></div>
+    <div class="square-btn" onclick="triggerFile('video')">Video<br><span>📸</span></div>
+  </div>
+</div>
+
+<input type="file" id="fileInput" style="display:none;" multiple>
+
+<div id="editor-container">
+  <div class="stretched-tile" id="fileNameTile">File Name: None</div>
+  
+  <div class="section-header">QUESTIONS</div>
+  <div class="grid-3col" id="questionsGrid"></div>
+
+  <div class="section-header">ANSWERS</div>
+  <div class="grid-3col" id="answersGrid"></div>
+
+  <button id="submit-btn">SUBMIT</button>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+  import { getDatabase, ref, push } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyCcCjs7M6vFbJzLvYvZfddmEIsCzPPG3jE",
+    authDomain: "quizer-project.firebaseapp.com",
+    databaseURL: "https://quizer-project-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "quizer-project",
+    storageBucket: "quizer-project.firebasestorage.app",
+    messagingSenderId: "401652926555",
+    appId: "1:401652926555:web:09e9b859638facefcd577e",
+    measurementId: "G-D1D4LK2XRT"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+
+  let currentType = '';
+  let fileQueue = [];
+  let currentFileIndex = 0;
+  let base64Data = '';
+  let fileName = '';
+
+  const modal = document.getElementById('uploadModal');
+  const fileInput = document.getElementById('fileInput');
+
+  document.getElementById('plus-container').onclick = () => modal.style.display = 'flex';
+  
+  window.triggerFile = function(type) {
+    currentType = type;
+    modal.style.display = 'none';
+    if(type === 'audio') fileInput.accept = "audio/*";
+    if(type === 'image') fileInput.accept = "image/*";
+    if(type === 'video') fileInput.accept = "video/*";
+    fileInput.click();
+  };
+
+  // Build inputs dynamically
+  const qGrid = document.getElementById('questionsGrid');
+  const aGrid = document.getElementById('answersGrid');
+  for(let i=1; i<=10; i++){
+    qGrid.innerHTML += `<div class="input-field"><label>${i}</label><input type="text" id="q-${i}"></div>`;
+    aGrid.innerHTML += `<div class="input-field"><label>${i}</label><input type="text" id="a-${i}"></div>`;
+  }
+
+  fileInput.onchange = function(e) {
+    if(!e.target.files.length) return;
+    fileQueue = Array.from(e.target.files);
+    currentFileIndex = 0;
+    processNextFile();
+  };
+
+  function processNextFile() {
+    if(currentFileIndex >= fileQueue.length) {
+      alert("All quiz items saved successfully!");
+      location.reload();
+      return;
+    }
+
+    const file = fileQueue[currentFileIndex];
+    fileName = file.name;
+    
+    // Clear out previous values for the new file entry
+    for(let i=1; i<=10; i++) {
+      document.getElementById(`q-${i}`).value = '';
+      document.getElementById(`a-${i}`).value = '';
+    }
+
+    document.getElementById('fileNameTile').innerText = `File (${currentFileIndex + 1}/${fileQueue.length}): ` + fileName;
+
+    const reader = new FileReader();
+    reader.onload = function(event) {
+      base64Data = event.target.result;
+      document.getElementById('plus-container').style.display = 'none';
+      document.getElementById('editor-container').style.display = 'block';
+    };
+    reader.readAsDataURL(file);
+  }
+
+  document.getElementById('submit-btn').onclick = async function() {
+    let questions = [];
+    let answers = [];
+    for(let i=1; i<=10; i++) {
+      questions.push(document.getElementById(`q-${i}`).value);
+      answers.push(document.getElementById(`a-${i}`).value);
+    }
+
+    const payload = {
+      name: fileName,
+      type: currentType,
+      data: base64Data,
+      questions: questions,
+      answers: answers,
+      timestamp: Date.now()
+    };
+
+    let targetRef = ref(db, "quizMedia/" + currentType);
+    await push(targetRef, payload);
+    
+    currentFileIndex++;
+    processNextFile();
+  };
+</script>
+</body>
+</html>
